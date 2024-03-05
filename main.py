@@ -84,7 +84,7 @@ def main():
     num_epochs = 500
     train_model(model, train_loader, val_loader, loss_function, optimizer, num_epochs)
 
-    # Optionally, you can add testing logic here using test_loader
+    test_model(model, test_loader, loss_function)
 
 if __name__ == "__main__":
     main()
