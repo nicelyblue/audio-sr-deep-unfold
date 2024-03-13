@@ -33,22 +33,25 @@ class UNet(nn.Module):
         
         # Add Transposed Convolution for Upsampling
         self.up_tconv1 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-        self.up_tconv2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.up_tconv3 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+        self.up_tconv2 = nn.ConvTranspose2d(128, 128, kernel_size=2, stride=2)
+        self.up_tconv3 = nn.ConvTranspose2d(64, 64, kernel_size=2, stride=2)
         
         # Upsample
-        self.up1 = DoubleConv(512 + 256, 256)  # Adjusted in_channels to 512 + 256 for the concatenated features
-        self.up2 = DoubleConv(256 + 128, 128)
-        self.up3 = DoubleConv(128 + 64, 64)
+        self.up1 = DoubleConv(256 + 256, 128)  # Adjusted in_channels to 512 + 256 for the concatenated features
+        self.up2 = DoubleConv(128 + 128, 64)
+        self.up3 = DoubleConv(64, 64)
         
         self.outc = nn.Conv2d(64, n_classes, kernel_size=1)
 
     def forward(self, x):
         # Downsampling
         x1 = self.inc(x)
-        x2 = F.max_pool2d(self.down1(x1), 2)
-        x3 = F.max_pool2d(self.down2(x2), 2)
-        x4 = F.max_pool2d(self.down3(x3), 2)
+        x1_1 = self.down1(x1)
+        x2 = F.max_pool2d(x1_1, 2)
+        x2_2 = self.down2(x2)
+        x3 = F.max_pool2d(x2_2, 2)
+        x3_3 = self.down3(x3)
+        x4 = F.max_pool2d(x3_3, 2)
         
         # Upsampling with Transposed Convolution
         x = self.up_tconv1(x4)
@@ -60,8 +63,9 @@ class UNet(nn.Module):
         x = self.up2(x)
         
         x = self.up_tconv3(x)
-        x = torch.cat([x, x1], dim=1)
-        x = self.up3(x)
-        
+        x_padded = F.pad(x, (0, 0, 1, 0), "reflect")
+        x = torch.cat([x_padded, x1], dim=2)
+        x = self.up3(x) 
+
         logits = self.outc(x)
         return logits
