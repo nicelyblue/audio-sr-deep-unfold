@@ -58,14 +58,14 @@ def test_model(model, test_loader, loss_function):
 
 
 def main():
-    input_dataset_path = 'path/to/your/input/dataset'
-    target_dataset_path = 'path/to/your/target/dataset'
+    input_dataset_path = 'data/subsampled'
+    target_dataset_path = 'data/original'
 
     input_paths = [os.path.join(input_dataset_path, file) for file in sorted(os.listdir(input_dataset_path))]
     target_paths = [os.path.join(target_dataset_path, file) for file in sorted(os.listdir(target_dataset_path))]
-    
+   
     assert len(input_paths) == len(target_paths), "Input and target datasets must be the same size"
-    
+
     full_dataset = AudioDataset(input_paths=input_paths, target_paths=target_paths, transform=fft_transform)
 
     train_size = int(0.7 * len(full_dataset))

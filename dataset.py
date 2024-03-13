@@ -17,12 +17,12 @@ class AudioDataset(Dataset):
         input_path = self.input_paths[idx]
         target_path = self.target_paths[idx]
         
-        input_waveform, _ = torchaudio.load(input_path)
-        target_waveform, _ = torchaudio.load(target_path)
+        input_waveform, _ = torchaudio.load(input_path, backend="soundfile")
+        target_waveform, _ = torchaudio.load(target_path, backend="soundfile")
 
         if self.transform:
-            input_waveform = self.transform(input_waveform[0])  # Assuming mono audio
-            target_waveform = self.transform(target_waveform[0]) # TODO: What if not mono?
+            input_waveform = self.transform(input_waveform)  
+            target_waveform = self.transform(target_waveform)
 
         return input_waveform, target_waveform
 
@@ -35,4 +35,4 @@ def fft_transform(waveform, n_fft=2048):
     phase_cos = torch.cos(phase)
     phase_sin = torch.sin(phase)
 
-    return torch.stack([magnitude, phase_cos, phase_sin], dim=0)
+    return torch.stack([magnitude, phase_cos, phase_sin], dim=0) 
