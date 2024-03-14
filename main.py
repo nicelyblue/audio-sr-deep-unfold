@@ -10,14 +10,15 @@ from model import UNet
 from loss import MagnitudePhaseLoss
 from early_stopping import EarlyStopping
 
-def train_model(model, train_loader, val_loader, loss_function, optimizer, num_epochs=10, patience=5):
-    early_stopping = EarlyStopping(patience=patience, verbose=True)
+def train_model(model, device, train_loader, val_loader, loss_function, optimizer, num_epochs=10, patience=5):
+    early_stopping = EarlyStopping(patience=patience, verbose=False)
     scheduler = ReduceLROnPlateau(optimizer, 'min', patience=2, verbose=True)
 
     for epoch in range(num_epochs):
         model.train()
         train_loss = 0.0
         for inputs, targets in train_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = loss_function(outputs, targets)
@@ -29,6 +30,7 @@ def train_model(model, train_loader, val_loader, loss_function, optimizer, num_e
         val_loss = 0.0
         with torch.no_grad():
             for inputs, targets in val_loader:
+                inputs, targets = inputs.to(device), targets.to(device)
                 outputs = model(inputs)
                 loss = loss_function(outputs, targets)
                 val_loss += loss.item()
@@ -38,18 +40,19 @@ def train_model(model, train_loader, val_loader, loss_function, optimizer, num_e
         print(f'Epoch {epoch+1}, Train Loss: {train_loss}, Val Loss: {val_loss}')
 
         scheduler.step(val_loss)
-        early_stopping(val_loss)
+        early_stopping(val_loss, model)
 
         if early_stopping.early_stop:
             print("Early stopping")
             break
 
 
-def test_model(model, test_loader, loss_function):
+def test_model(model, device, test_loader, loss_function):
     model.eval()
     test_loss = 0.0
     with torch.no_grad():
         for inputs, targets in test_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
             loss = loss_function(outputs, targets)
             test_loss += loss.item()
@@ -58,6 +61,9 @@ def test_model(model, test_loader, loss_function):
 
 
 def main():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+   
     input_dataset_path = 'data/subsampled'
     target_dataset_path = 'data/original'
 
@@ -77,14 +83,18 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
 
-    model = UNet(n_channels=3, n_classes=3)
+    model = UNet(n_channels=3, n_classes=3).to(device)
     loss_function = MagnitudePhaseLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     num_epochs = 500
-    train_model(model, train_loader, val_loader, loss_function, optimizer, num_epochs)
+    train_model(model, device, train_loader, val_loader, loss_function, optimizer, num_epochs)
 
-    test_model(model, test_loader, loss_function)
+    test_model(model, device, test_loader, loss_function)
+    
+    # Save the final model
+    torch.save(model.state_dict(), 'model.pth')
+    print("Saved the final model state to 'final_model.pth'")
 
 if __name__ == "__main__":
     main()
