@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from dataset import AudioDataset, fft_transform
+from dataset import AudioDataset
 from model import UNet
 from loss import MagnitudePhaseLoss
 from early_stopping import EarlyStopping
@@ -60,6 +60,10 @@ def test_model(model, device, test_loader, loss_function):
     print(f'Test Loss: {test_loss}')
 
 
+def get_fft_paths(directory):
+    return [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith('.pt')]
+
+
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -67,32 +71,31 @@ def main():
     input_dataset_path = 'data/subsampled'
     target_dataset_path = 'data/original'
 
-    input_paths = [os.path.join(input_dataset_path, file) for file in sorted(os.listdir(input_dataset_path))]
-    target_paths = [os.path.join(target_dataset_path, file) for file in sorted(os.listdir(target_dataset_path))]
-   
+    input_paths = get_fft_paths(input_dataset_path)
+    target_paths = get_fft_paths(target_dataset_path)
+    
     assert len(input_paths) == len(target_paths), "Input and target datasets must be the same size"
 
-    full_dataset = AudioDataset(input_paths=input_paths, target_paths=target_paths, transform=fft_transform)
+    full_dataset = AudioDataset(input_paths=input_paths, target_paths=target_paths)
 
     train_size = int(0.7 * len(full_dataset))
     val_size = int(0.15 * len(full_dataset))
     test_size = len(full_dataset) - train_size - val_size
     train_dataset, val_dataset, test_dataset = random_split(full_dataset, [train_size, val_size, test_size])
 
-    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=10)
+    val_loader = DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers=10)
+    test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False, num_workers=10)
 
     model = UNet(n_channels=3, n_classes=3).to(device)
     loss_function = MagnitudePhaseLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
 
     num_epochs = 500
     train_model(model, device, train_loader, val_loader, loss_function, optimizer, num_epochs)
 
     test_model(model, device, test_loader, loss_function)
     
-    # Save the final model
     torch.save(model.state_dict(), 'model.pth')
     print("Saved the final model state to 'final_model.pth'")
 
